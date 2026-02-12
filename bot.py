@@ -8,6 +8,8 @@ from pyrogram.errors.exceptions.flood_420 import FloodWait
 from database import add_user, add_group, all_users, all_groups, users
 from configs import cfg
 import asyncio
+import time
+import os
 
 app = Client(
     "approver",
@@ -23,29 +25,57 @@ def parse_post_link(link: str):
     msg_id = int(parts[-1])
     return chat, msg_id
 
-#━━━━━━━━━━━━━━━━━━━━ JOIN REQUEST (NO APPROVE, ONLY DM) ━━━━━━━━━━━━━━━━━━━━
+#━━━━━━━━━━━━━━━━━━━━ JOIN REQUEST (AUTO APPROVE WITH 10s DELAY + LOG) ━━━━━━━━━━━━━━━━━━━━
 @app.on_chat_join_request(filters.group | filters.channel)
 async def approve(_, m: Message):
     op = m.chat
     user = m.from_user
+
     try:
         add_group(op.id)
         add_user(user.id)
 
-        # ❌ JOIN REQUEST APPROVE NAHI HOGA
-        # await app.approve_chat_join_request(op.id, user.id)
+        # 📝 Save ID + Time in log (one per line: user_id|timestamp)
+        request_time = int(time.time())
+        try:
+            with open("log.txt", "a") as f:
+                f.write(f"{user.id}|{request_time}\n")
+        except Exception as e:
+            print("Log write error:", e)
 
-        # ✅ USER KO DM
-        await app.send_message(
-            user.id,
-            f"👋 𝗪𝗲𝗹𝗰𝗼𝗺𝗲 {user.first_name}\n\n"
-            "𝗬𝗼𝘂𝗿 𝗷𝗼𝗶𝗻 𝗿𝗲𝗾𝘂𝗲𝘀𝘁 𝗵𝗮𝘀 𝗯𝗲𝗲𝗻 𝗿𝗲𝗰𝗲𝗶𝘃𝗲𝗱 𝘀𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆.\n\n"
-            "⏳ 𝗣𝗹𝗲𝗮𝘀𝗲 𝘄𝗮𝗶𝘁 𝘄𝗵𝗶𝗹𝗲 𝗼𝘂𝗿 𝗮𝗱𝗺𝗶𝗻 𝗿𝗲𝘃𝗶𝗲𝘄𝘀 𝗮𝗻𝗱 𝗮𝗽𝗿𝗼𝘃𝗲𝘀 𝘆𝗼𝘂𝗿 𝗿𝗲𝗾𝘂𝗲𝘀𝘁.\n\n"
-            "🤑 𝗔𝗽𝗸𝗮 𝘃𝗶𝗽 𝗻𝘂𝗺𝗯𝗲𝗿 𝗽𝗮𝗻𝟯𝗹 𝗻𝗶𝗰𝗵𝗲 𝗱𝗶𝘆𝗲 𝗴𝗮𝘆𝗲 𝗵𝗮𝗶𝗻 𝘂𝘀𝗲 𝗸𝗮𝗿𝗻𝗲 𝗸𝗲 𝗹𝗶𝘆𝗲 𝘀𝗲𝘁𝘂𝗽 𝘃𝗶𝗱𝗲𝗼 𝗱𝗵𝘆𝗮𝗮𝗻 𝘀𝗲 𝗱𝗲𝗸𝗵𝗲𝗶𝗻..\n\n"
-        )
+        # ⏳ Wait 10 seconds before approving
+        await asyncio.sleep(10)
 
-        # ✅ PROMO / APK / VIDEO SEND
-        for link in cfg.POSTS:
+        # ✅ Attempt to approve the join request (bot must be admin with right)
+        try:
+            await app.approve_chat_join_request(op.id, user.id)
+        except FloodWait as fw:
+            # If flood wait, sleep required seconds then retry
+            await asyncio.sleep(fw.value)
+            try:
+                await app.approve_chat_join_request(op.id, user.id)
+            except Exception as e:
+                print("Approve retry failed:", e)
+        except errors.PeerIdInvalid:
+            # invalid peer/user id; can't DM or approve
+            print("PeerIdInvalid for user:", user.id)
+        except Exception as e:
+            print("Approve error:", e)
+
+        # 📩 Send Approved Message (try/except because user may have privacy settings)
+        try:
+            await app.send_message(
+                user.id,
+                f"👋 𝗪𝗲𝗹𝗰𝗼𝗺𝗲 {user.first_name}\n\n"
+                "✅ Your join request has been approved successfully!\n\n"
+                "🎉 Welcome to the channel."
+            )
+        except Exception as e:
+            # can't DM user — ignore silently or log
+            print("Send DM failed:", e)
+
+        # ✅ Optional: Send configured POSTS to user (same as original behavior)
+        for link in getattr(cfg, "POSTS", []):
             try:
                 chat_id, msg_id = parse_post_link(link)
                 await app.copy_message(
@@ -54,15 +84,25 @@ async def approve(_, m: Message):
                     message_id=msg_id
                 )
                 await asyncio.sleep(1)
-            except:
+            except Exception:
+                # ignore individual copy errors
                 pass
 
-    except errors.PeerIdInvalid:
-        pass
-    except FloodWait as e:
-        await asyncio.sleep(e.value)
-    except:
-        pass
+        # 🗑 Remove user from log after approval
+        try:
+            if os.path.exists("log.txt"):
+                with open("log.txt", "r") as f:
+                    lines = f.readlines()
+                with open("log.txt", "w") as f:
+                    for line in lines:
+                        if not line.startswith(str(user.id) + "|"):
+                            f.write(line)
+        except Exception as e:
+            print("Log cleanup error:", e)
+
+    except Exception as e:
+        # generic catch (keep bot alive)
+        print("Join Handler Error:", e)
 
 #━━━━━━━━━━━━━━━━━━━━ START COMMAND ━━━━━━━━━━━━━━━━━━━━
 @app.on_message(filters.private & filters.command("start"))
@@ -75,7 +115,8 @@ async def start(_, m: Message):
             "𝐁𝐇𝐀𝐈 𝐇𝐀𝐂𝐊 𝐒𝐄 𝐏𝐋𝐀𝐘 𝐊𝐑𝐎\n\n💸𝐏𝐑𝐎𝐅𝐈𝐓 𝐊𝐑𝐎🍻"
         )
 
-        for link in cfg.POSTS:
+        # send configured posts (same as original)
+        for link in getattr(cfg, "POSTS", []):
             try:
                 chat_id, msg_id = parse_post_link(link)
                 await app.copy_message(
@@ -84,7 +125,7 @@ async def start(_, m: Message):
                     message_id=msg_id
                 )
                 await asyncio.sleep(1)
-            except:
+            except Exception:
                 pass
         return
 
@@ -123,13 +164,14 @@ async def bcast(_, m: Message):
     ok = fail = 0
     for u in users.find():
         try:
+            # will copy the replied message to each user id
             await m.reply_to_message.copy(u["user_id"])
             ok += 1
-        except:
+        except Exception:
             fail += 1
     await status.edit(f"✅ {ok} | ❌ {fail}")
 
-#━━━━━━━━━━━━━━━━━━━━ 🚫 AUTO DELETE ILLEGAL BOT MSG ━━━━━━━━━━━━━━━━━━━━
+#━━━━━━━━━━━━━━━━━━━━ 🚫 AUTO DELETE ILLEGAL BOT MSG (UNCHANGED) ━━━━━━━━━━━━━━━━━━━━
 @app.on_message(filters.me)
 async def auto_delete_illegal(_, m: Message):
     try:
