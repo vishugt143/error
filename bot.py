@@ -1,204 +1,151 @@
-# app.py
 # Don't Remove Credit @teacher_slex
-# Subscribe YouTube Channel For Amazing Bot @Tech_VJ
+# Subscribe YouTube ƈɦǟռռɛʟ For Amazing Bot @Tech_VJ
 # Ask Doubt on telegram @KingVJ01
 
-import os
-import re
-import asyncio
-import logging
-from datetime import datetime
-from aiohttp import web
-from pyrogram import Client, filters, idle, errors
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, ChatJoinRequest
+from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram import filters, Client, errors
 from pyrogram.errors.exceptions.flood_420 import FloodWait
-
-# Database imports
 from database import add_user, add_group, all_users, all_groups, users
 from configs import cfg
+import asyncio
 
-# Logging Setup
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
-
-# ---------- Pyrogram Client ----------
-bot = Client(
+app = Client(
     "approver",
     api_id=cfg.API_ID,
     api_hash=cfg.API_HASH,
     bot_token=cfg.BOT_TOKEN
 )
 
-# ------------------ HELPER FUNCTIONS FOR LOG ------------------
-def add_to_log(user_id, name):
-    """User ko log.txt me add karega"""
+#━━━━━━━━━━━━━━━━━━━━ HELPER ━━━━━━━━━━━━━━━━━━━━
+def parse_post_link(link: str):
+    parts = link.split("/")
+    chat = parts[-2]
+    msg_id = int(parts[-1])
+    return chat, msg_id
+
+#━━━━━━━━━━━━━━━━━━━━ JOIN REQUEST (NO APPROVE, ONLY DM) ━━━━━━━━━━━━━━━━━━━━
+@app.on_chat_join_request(filters.group | filters.channel)
+async def approve(_, m: Message):
+    op = m.chat
+    user = m.from_user
     try:
-        time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        entry = f"{user_id} | {name} | {time_now}\n"
-        with open("log.txt", "a", encoding="utf-8") as f:
-            f.write(entry)
-        print(f"📝 Log Added: {name}")
-    except Exception as e:
-        print(f"Log Error: {e}")
+        add_group(op.id)
+        add_user(user.id)
 
-def remove_from_log(user_id):
-    """User ko log.txt se remove karega (Accept hone ke baad)"""
-    try:
-        if not os.path.exists("log.txt"):
-            return
+        # ❌ JOIN REQUEST APPROVE NAHI HOGA
+        # await app.approve_chat_join_request(op.id, user.id)
 
-        with open("log.txt", "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        # ✅ USER KO DM
+        await app.send_message(
+            user.id,
+            f"👋 𝗪𝗲𝗹𝗰𝗼𝗺𝗲 {user.first_name}\n\n"
+            "𝗬𝗼𝘂𝗿 𝗷𝗼𝗶𝗻 𝗿𝗲𝗾𝘂𝗲𝘀𝘁 𝗵𝗮𝘀 𝗯𝗲𝗲𝗻 𝗿𝗲𝗰𝗲𝗶𝘃𝗲𝗱 𝘀𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆.\n\n"
+            "⏳ 𝗣𝗹𝗲𝗮𝘀𝗲 𝘄𝗮𝗶𝘁 𝘄𝗵𝗶𝗹𝗲 𝗼𝘂𝗿 𝗮𝗱𝗺𝗶𝗻 𝗿𝗲𝘃𝗶𝗲𝘄𝘀 𝗮𝗻𝗱 𝗮𝗽𝗿𝗼𝘃𝗲𝘀 𝘆𝗼𝘂𝗿 𝗿𝗲𝗾𝘂𝗲𝘀𝘁.\n\n"
+            "🤑 𝗔𝗽𝗸𝗮 𝘃𝗶𝗽 𝗻𝘂𝗺𝗯𝗲𝗿 𝗽𝗮𝗻𝟯𝗹 𝗻𝗶𝗰𝗵𝗲 𝗱𝗶𝘆𝗲 𝗴𝗮𝘆𝗲 𝗵𝗮𝗶𝗻 𝘂𝘀𝗲 𝗸𝗮𝗿𝗻𝗲 𝗸𝗲 𝗹𝗶𝘆𝗲 𝘀𝗲𝘁𝘂𝗽 𝘃𝗶𝗱𝗲𝗼 𝗱𝗵𝘆𝗮𝗮𝗻 𝘀𝗲 𝗱𝗲𝗸𝗵𝗲𝗶𝗻..\n\n"
+        )
 
-        with open("log.txt", "w", encoding="utf-8") as f:
-            for line in lines:
-                if str(user_id) not in line:
-                    f.write(line)
-        print(f"🗑️ Log Removed: {user_id}")
-    except Exception as e:
-        print(f"Remove Log Error: {e}")
+        # ✅ PROMO / APK / VIDEO SEND
+        for link in cfg.POSTS:
+            try:
+                chat_id, msg_id = parse_post_link(link)
+                await app.copy_message(
+                    chat_id=user.id,
+                    from_chat_id=chat_id,
+                    message_id=msg_id
+                )
+                await asyncio.sleep(1)
+            except:
+                pass
 
-#━━━━━━━━━━━━━━━━━━━━ JOIN REQUEST HANDLER ━━━━━━━━━━━━━━━━━━━━
-@bot.on_chat_join_request()
-async def approve(client, m: ChatJoinRequest):
-    try:
-        chat = m.chat
-        user = m.from_user
-        
-        # 1. PEHLE LOG ME SAVE KARO
-        add_to_log(user.id, user.first_name)
-
-        # Database me add karo
-        try:
-            add_group(chat.id)
-            add_user(user.id)
-        except:
-            pass
-
-        # ⏳ 2. 10 SECOND WAIT
-        await asyncio.sleep(10)
-
-        # ✅ 3. APPROVE REQUEST
-        try:
-            await client.approve_chat_join_request(chat.id, user.id)
-        except errors.UserAlreadyParticipant:
-            pass
-        except Exception as e:
-            print(f"Approval Failed: {e}")
-            return 
-
-        # 🗑️ 4. LOG SE REMOVE KARO
-        remove_from_log(user.id)
-
-        # 👋 WELCOME MESSAGE
-        try:
-            await client.send_message(
-                user.id,
-                f"👋 Hello {user.first_name}!\n\n"
-                "✅ Aapka join request approve ho gaya hai.\n"
-                "🎉 Welcome to the group!"
-            )
-        except Exception:
-            pass
-
+    except errors.PeerIdInvalid:
+        pass
     except FloodWait as e:
         await asyncio.sleep(e.value)
-    except Exception as e:
-        log.exception(f"Error: {e}")
-
-#━━━━━━━━━━━━━━━━━━━━ ILLEGAL WORD DELETE ━━━━━━━━━━━━━━━━━━━━
-@bot.on_message(filters.group & filters.text)
-async def illegal_filter(_, m: Message):
-    if not m.from_user: return
-    if m.from_user.id in cfg.SUDO: return
-
-    text = (m.text or "").lower()
-
-    for word in cfg.ILLEGAL_WORDS:
-        pattern = r"\b" + re.escape(word.lower()) + r"\b"
-        if re.search(pattern, text):
-            try:
-                await m.delete()
-                try:
-                    msg = await m.reply(f"⚠️ {m.from_user.mention}, ye word allowed nahi hai.")
-                    await asyncio.sleep(5)
-                    await msg.delete()
-                except: pass
-            except: pass
-            break
+    except:
+        pass
 
 #━━━━━━━━━━━━━━━━━━━━ START COMMAND ━━━━━━━━━━━━━━━━━━━━
-@bot.on_message(filters.private & filters.command("start"))
+@app.on_message(filters.private & filters.command("start"))
 async def start(_, m: Message):
     add_user(m.from_user.id)
-    
+
+    # NORMAL USER
     if m.from_user.id not in cfg.SUDO:
-        await m.reply_text("👋 Hello! Join my group to get approved.")
+        await m.reply_text(
+            "𝐁𝐇𝐀𝐈 𝐇𝐀𝐂𝐊 𝐒𝐄 𝐏𝐋𝐀𝐘 𝐊𝐑𝐎\n\n💸𝐏𝐑𝐎𝐅𝐈𝐓 𝐊𝐑𝐎🍻"
+        )
+
+        for link in cfg.POSTS:
+            try:
+                chat_id, msg_id = parse_post_link(link)
+                await app.copy_message(
+                    chat_id=m.from_user.id,
+                    from_chat_id=chat_id,
+                    message_id=msg_id
+                )
+                await asyncio.sleep(1)
+            except:
+                pass
         return
 
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 Channel", url="https://t.me/lnx_store")]
-    ])
-    
+    # ADMIN HOME (NO JOIN CHECK)
+    keyboard = InlineKeyboardMarkup(
+        [[
+            InlineKeyboardButton("🗯 ƈɦǟռռɛʟ", url="https://t.me/lnx_store"),
+            InlineKeyboardButton("💬 Support", url="https://t.me/teacher_slex")
+        ]]
+    )
+
     await m.reply_photo(
         photo="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhsaR6kRdTPF2ZMEgmgSYjjXU6OcsJhkBe1EWtI1nfbOziINTYzxjlGCMSVh-KoH05Z8MpRWhVV9TIX_ykpjdeGqJ1atXy1TUqrVkohUxlykoZyl67EfMQppHoWYrdHmdi6FMcL9v-Vew2VtaWHWY_eGZt-GN057jLGvYj7UV49g0rXVxoDFXQAYxvaX1xP/s1280/75447.jpg",
-        caption=f"**🦊 Admin Panel**\n\nActive! Logs are managed automatically.",
+        caption=(
+            f"**🦊 Hello {m.from_user.mention}!**\n\n"
+            "I'm an auto approve bot.\n"
+            "I handle join requests & DM users.\n\n"
+            "📢 Broadcast : /bcast\n"
+            "📊 Users : /users\n\n"
+            "__Powered By : @teacher_slex__"
+        ),
         reply_markup=keyboard
     )
 
-#━━━━━━━━━━━━━━━━━━━━ BROADCAST & STATS ━━━━━━━━━━━━━━━━━━━━
-@bot.on_message(filters.command("users") & filters.user(cfg.SUDO))
+#━━━━━━━━━━━━━━━━━━━━ USERS COUNT ━━━━━━━━━━━━━━━━━━━━
+@app.on_message(filters.command("users") & filters.user(cfg.SUDO))
 async def users_count(_, m: Message):
     u = all_users()
     g = all_groups()
-    await m.reply_text(f"📊 Total Users: `{u}`\n👥 Total Groups: `{g}`")
+    await m.reply_text(f"🙋 Users : `{u}`\n👥 Groups : `{g}`\n📊 Total : `{u+g}`")
 
-@bot.on_message(filters.command("bcast") & filters.user(cfg.SUDO))
+#━━━━━━━━━━━━━━━━━━━━ BROADCAST COPY ━━━━━━━━━━━━━━━━━━━━
+@app.on_message(filters.command("bcast") & filters.user(cfg.SUDO))
 async def bcast(_, m: Message):
-    if not m.reply_to_message:
-        return await m.reply("Reply to a message to broadcast.")
-    
     status = await m.reply("⚡ Broadcasting...")
     ok = fail = 0
-    all_db_users = users.find({}) 
-
-    for person in all_db_users:
+    for u in users.find():
         try:
-            uid = int(person['user_id'])
-            await m.reply_to_message.copy(uid)
+            await m.reply_to_message.copy(u["user_id"])
             ok += 1
-            await asyncio.sleep(0.1)
         except:
             fail += 1
+    await status.edit(f"✅ {ok} | ❌ {fail}")
 
-    await status.edit(f"✅ Sent: {ok} | ❌ Failed: {fail}")
-
-#━━━━━━━━━━━━━━━━━━━━ WEB SERVER & MAIN ━━━━━━━━━━━━━━━━━━━━
-async def handle_index(request):
-    return web.Response(text="Bot is Running!")
-
-async def start_web_server():
-    # Render PORT handling
-    port = int(os.environ.get("PORT", "8080"))
-    app = web.Application()
-    app.router.add_get('/', handle_index)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port)
-    await site.start()
-    return runner
-
-async def main():
-    # Start Web Server & Bot together
-    await start_web_server()
-    print("✅ Bot Started with Log Feature!")
-    await bot.start()
-    await idle()
-    await bot.stop()
-
-if __name__ == "__main__":
+#━━━━━━━━━━━━━━━━━━━━ 🚫 AUTO DELETE ILLEGAL BOT MSG ━━━━━━━━━━━━━━━━━━━━
+@app.on_message(filters.me)
+async def auto_delete_illegal(_, m: Message):
     try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
+        content = ""
+        if m.text:
+            content = m.text.lower()
+        elif m.caption:
+            content = m.caption.lower()
+
+        for word in cfg.ILLEGAL_WORDS:
+            if word.lower() in content:
+                await asyncio.sleep(0.1)
+                await m.delete()
+                return
+    except:
         pass
 
+print("🤖 Bot is Alive!")
+app.run()
