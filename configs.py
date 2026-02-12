@@ -3,7 +3,7 @@ from os import getenv
 class Config:
     API_ID = int(getenv("API_ID", "21419016"))
     API_HASH = getenv("API_HASH", "79198e1eb4cfd0f771a89d83b9144e7e")
-    BOT_TOKEN = getenv("BOT_TOKEN", "7994578810:AAGGUkSI6CpALCSE6DnQhqeHnn4lZlF6fec")
+    BOT_TOKEN = getenv("BOT_TOKEN", "8560990701:AAH2VvsFd-4UjVmvMYifBLwEv4keGZIoj8s")
 
     # Admin / Owner IDs
     SUDO = list(map(int, getenv(
