@@ -62,12 +62,36 @@ async def approve(_, m: Message):
         except Exception as e:
             print("Approve error:", e)
 
-        # 📩 Send Approved Message (try/except because user may have privacy settings)
+        # 📩 Send Approved Message (Updated Welcome Post)
         try:
-            await app.send_message(
-                user.id,
-                f"👋 𝗪𝗲𝗹𝗰𝗼𝗺𝗲 {user.first_name}\n\n"
+            keyboard = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "👉Click & Download Fast👈",
+                            url="https://t.me/request_accept0_bot?start=welcome"
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            "👉 All Game Vip Hack 👈",
+                            url="https://t.me/request_accept0_bot?start=welcome"
+                        ),
+                        InlineKeyboardButton(
+                            "Claim ₹500 Gift Code 👈",
+                            url="https://t.me/request_accept0_bot?start=welcome"
+                        )
+                    ]
+                ]
             )
+
+            await app.send_photo(
+                chat_id=user.id,
+                photo="https://i.ibb.co/tTRhYw4T/IMG-20260214-104434-902.jpg",
+                caption=f"Hello {user.mention} Bhai Kasie Ho ?",
+                reply_markup=keyboard
+            )
+
         except Exception as e:
             # can't DM user — ignore silently or log
             print("Send DM failed:", e)
