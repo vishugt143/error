@@ -87,7 +87,7 @@ async def approve(_, m: Message):
 
             await app.send_photo(
                 chat_id=user.id,
-                photo="https://i.ibb.co/tTRhYw4T/IMG-20260214-104434-902.jpg",
+                photo="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiv-gguuzwzVlA-vQj5a4fS3GCFZbzhRM3Qxwa20nu7afMl_R5PslCP82GXHJ5WiihJSSa_Xg45rYjB_dvWAb9RnUpbhVrsqdT9O1CkFAXgGRiOsRe2DXh8VcugC6-I-OnZ81wbPHbWCiGzRFvFau8sOFKslG6nPGeo3kqvZdfi__K9AIjhkq018iYbYYBe/s1600/523136.jpg",
                 caption=f"Hello {user.mention} Bhai Kasie Ho ?",
                 reply_markup=keyboard
             )
