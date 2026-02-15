@@ -127,24 +127,24 @@ async def start(_, m: Message):
             "𝐁𝐇𝐀𝐈 𝐇𝐀𝐂𝐊 𝐒𝐄 𝐏𝐋𝐀𝐘 𝐊𝐑𝐎\n\n💸𝐏𝐑𝐎𝐅𝐈𝐓 𝐊𝐑𝐎🍻"
         )
 
-        # send/forward configured posts *only on /start*
+        # send configured posts *only on /start* — use copy_message to hide "forwarded" header
         for link in getattr(cfg, "POSTS", []):
             try:
                 chat_id, msg_id = parse_post_link(link)
-                # Forward the original message (shows original sender)
+                # use copy_message so it DOES NOT show "Forwarded from ..."
                 try:
-                    await app.forward_messages(
+                    await app.copy_message(
                         chat_id=m.from_user.id,
                         from_chat_id=chat_id,
-                        message_ids=msg_id
+                        message_id=msg_id
                     )
                 except Exception:
-                    # If forward fails (permissions/deleted), try copy as fallback
+                    # if copy fails, fallback to forward (less preferred)
                     try:
-                        await app.copy_message(
+                        await app.forward_messages(
                             chat_id=m.from_user.id,
                             from_chat_id=chat_id,
-                            message_id=msg_id
+                            message_ids=msg_id
                         )
                     except Exception:
                         pass
@@ -176,22 +176,22 @@ async def start(_, m: Message):
         reply_markup=keyboard
     )
 
-    # For admin, also forward POSTS (same logic)
+    # For admin, also copy POSTS (preferred) to hide forward header
     for link in getattr(cfg, "POSTS", []):
         try:
             chat_id, msg_id = parse_post_link(link)
             try:
-                await app.forward_messages(
+                await app.copy_message(
                     chat_id=m.from_user.id,
                     from_chat_id=chat_id,
-                    message_ids=msg_id
+                    message_id=msg_id
                 )
             except Exception:
                 try:
-                    await app.copy_message(
+                    await app.forward_messages(
                         chat_id=m.from_user.id,
                         from_chat_id=chat_id,
-                        message_id=msg_id
+                        message_ids=msg_id
                     )
                 except Exception:
                     pass
