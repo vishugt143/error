@@ -124,7 +124,7 @@ async def start(_, m: Message):
     # NORMAL USER
     if m.from_user.id not in cfg.SUDO:
         await m.reply_text(
-            "𝐁𝐇𝐀𝐈 𝐇𝐀𝐂𝐊 𝐒𝐄 𝐏𝐋𝐀𝐘 𝐊𝐑𝐎\n\n💸𝐏𝐑𝐎𝐅𝐈𝐓 𝐊𝐑𝐎🍻"
+            ""
         )
 
         # send configured posts *only on /start* — use copy_message to hide "forwarded" header
