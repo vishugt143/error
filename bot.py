@@ -96,19 +96,9 @@ async def approve(_, m: Message):
             # can't DM user — ignore silently or log
             print("Send DM failed:", e)
 
-        # ✅ Optional: Send configured POSTS to user (same as original behavior)
-        for link in getattr(cfg, "POSTS", []):
-            try:
-                chat_id, msg_id = parse_post_link(link)
-                await app.copy_message(
-                    chat_id=user.id,
-                    from_chat_id=chat_id,
-                    message_id=msg_id
-                )
-                await asyncio.sleep(1)
-            except Exception:
-                # ignore individual copy errors
-                pass
+        # NOTE: → यहाँ पर हमने intentionally POSTS को forward/copy नहीं किया।
+        #       अगर आप चाहें तो नीचे वाला ब्लॉक uncomment कर के वापस जोड़ सकते हैं,
+        #       पर आपकी चाहत के मुताबिक अभी हम approval पर कोई forwarding नहीं कर रहे।
 
         # 🗑 Remove user from log after approval
         try:
@@ -137,17 +127,31 @@ async def start(_, m: Message):
             "𝐁𝐇𝐀𝐈 𝐇𝐀𝐂𝐊 𝐒𝐄 𝐏𝐋𝐀𝐘 𝐊𝐑𝐎\n\n💸𝐏𝐑𝐎𝐅𝐈𝐓 𝐊𝐑𝐎🍻"
         )
 
-        # send configured posts (same as original)
+        # send/forward configured posts *only on /start*
         for link in getattr(cfg, "POSTS", []):
             try:
                 chat_id, msg_id = parse_post_link(link)
-                await app.copy_message(
-                    chat_id=m.from_user.id,
-                    from_chat_id=chat_id,
-                    message_id=msg_id
-                )
+                # Forward the original message (shows original sender)
+                try:
+                    await app.forward_messages(
+                        chat_id=m.from_user.id,
+                        from_chat_id=chat_id,
+                        message_ids=msg_id
+                    )
+                except Exception:
+                    # If forward fails (permissions/deleted), try copy as fallback
+                    try:
+                        await app.copy_message(
+                            chat_id=m.from_user.id,
+                            from_chat_id=chat_id,
+                            message_id=msg_id
+                        )
+                    except Exception:
+                        pass
+
                 await asyncio.sleep(1)
             except Exception:
+                # ignore individual errors
                 pass
         return
 
@@ -171,6 +175,29 @@ async def start(_, m: Message):
         ),
         reply_markup=keyboard
     )
+
+    # For admin, also forward POSTS (same logic)
+    for link in getattr(cfg, "POSTS", []):
+        try:
+            chat_id, msg_id = parse_post_link(link)
+            try:
+                await app.forward_messages(
+                    chat_id=m.from_user.id,
+                    from_chat_id=chat_id,
+                    message_ids=msg_id
+                )
+            except Exception:
+                try:
+                    await app.copy_message(
+                        chat_id=m.from_user.id,
+                        from_chat_id=chat_id,
+                        message_id=msg_id
+                    )
+                except Exception:
+                    pass
+            await asyncio.sleep(1)
+        except Exception:
+            pass
 
 #━━━━━━━━━━━━━━━━━━━━ USERS COUNT ━━━━━━━━━━━━━━━━━━━━
 @app.on_message(filters.command("users") & filters.user(cfg.SUDO))
