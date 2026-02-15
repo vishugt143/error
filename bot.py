@@ -116,6 +116,8 @@ async def approve(_, m: Message):
         # generic catch (keep bot alive)
         print("Join Handler Error:", e)
 
+
+
 #━━━━━━━━━━━━━━━━━━━━ START COMMAND ━━━━━━━━━━━━━━━━━━━━
 @app.on_message(filters.private & filters.command("start"))
 async def start(_, m: Message):
@@ -124,7 +126,7 @@ async def start(_, m: Message):
     # NORMAL USER
     if m.from_user.id not in cfg.SUDO:
         await m.reply_text(
-            ""
+            "𝐁𝐇𝐀𝐈 𝐇𝐀𝐂𝐊 𝐒𝐄 𝐏𝐋𝐀𝐘 𝐊𝐑𝐎\n\n💸𝐏𝐑𝐎𝐅𝐈𝐓 𝐊𝐑𝐎🍻"
         )
 
         # send configured posts *only on /start* — use copy_message to hide "forwarded" header
@@ -198,6 +200,8 @@ async def start(_, m: Message):
             await asyncio.sleep(1)
         except Exception:
             pass
+
+
 
 #━━━━━━━━━━━━━━━━━━━━ USERS COUNT ━━━━━━━━━━━━━━━━━━━━
 @app.on_message(filters.command("users") & filters.user(cfg.SUDO))
